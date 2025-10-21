@@ -8,88 +8,19 @@ import CampaignList from "./components/CampaignList";
 import RecentDonations from "./components/RecentDonations";
 import MyCampaignList from "./components/MyCampaignList";
 import AuthPage from "./components/AuthPage";
+import { BlockchainProvider, useBlockchain } from "./contexts/BlockchainContext";
 import { getContract } from "./web3";
 import Loader from "./components/Loader";
 import { useAuth } from "./contexts/AuthContext";
 
-function App() {
+function AppInner() {
   const { user, loading: authLoading } = useAuth();
   const [authenticatedUser, setAuthenticatedUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [campaigns, setCampaigns] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [donations, setDonations] = useState([]);
   const [activeView, setActiveView] = useState('all');
-  const [currentAccount, setCurrentAccount] = useState(null);
 
-  // Load campaigns from blockchain
-  const loadCampaigns = async () => {
-    setLoading(true);
-    try {
-      const { contract, accounts } = await getContract();
-  const result = await contract.methods.getCampaigns().call();
-  // Attach a stable 0-based index and explicit contractId (1-based) to each campaign
-  const indexed = result.map((c, idx) => ({ ...c, _index: idx, contractId: (idx + 1).toString() }));
-  setCampaigns(indexed);
-      if (accounts && accounts.length > 0) {
-        setCurrentAccount(accounts[0]);
-      } else {
-        setCurrentAccount(null);
-      }
-    } catch (error) {
-      console.error("Error loading campaigns:", error);
-      setCampaigns([]);
-      setCurrentAccount(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Load real donations from blockchain
-  const loadDonations = async () => {
-    try {
-      const { contract, web3 } = await getContract();
-      const events = await contract.getPastEvents("Donated", {
-        fromBlock: 0,
-        toBlock: "latest"
-      });
-      const donationsWithTime = await Promise.all(events.map(async (event) => {
-        const block = await web3.eth.getBlock(event.blockNumber);
-        // event.returnValues may contain BN/BigInt-like values depending on provider.
-        // Use web3.utils.fromWei which returns a string, then parseFloat for numeric operations.
-        const rawAmount = event.returnValues.amount;
-        const amountEthStr = web3.utils.fromWei(rawAmount.toString(), "ether");
-        const amountEth = parseFloat(amountEthStr);
-
-        // campaignId may be a string or BN; stringify to be safe when mixing types.
-        const campaignId = event.returnValues.campaignId !== undefined
-          ? event.returnValues.campaignId.toString()
-          : null;
-
-        return {
-          address: event.returnValues.donor,
-          // Keep a human-friendly string for display, but store numeric for counts/filters
-          amount: amountEth.toFixed(4),
-          campaignId,
-          time: new Date(Number(block.timestamp) * 1000).toLocaleString()
-        };
-      }));
-      setDonations(donationsWithTime.reverse());
-    } catch (error) {
-      console.error("Error loading donations:", error);
-      setDonations([]);
-    }
-  };
-
-  useEffect(() => {
-    loadCampaigns();
-    loadDonations();
-  }, []);
-
-  // Optimistic donation: add a donation locally before chain confirmation for instant UI feedback.
-  const handleOptimisticDonate = (donation) => {
-    setDonations(prev => [donation, ...prev]);
-  };
+  // Use blockchain data from context
+  const { campaigns, donations, loading, currentAccount, reloadAll, handleOptimisticDonate } = useBlockchain();
 
   // Keep the local authenticatedUser in sync with context `user` so
   // sessions restored by Supabase on page refresh are respected.
@@ -97,7 +28,7 @@ function App() {
     setAuthenticatedUser(user);
   }, [user]);
 
-  // Create campaign on blockchain
+  // Create campaign on blockchain — use getContract directly for write actions
   const handleCreateCampaign = async (campaign) => {
     try {
       const { contract, web3, accounts } = await getContract();
@@ -119,19 +50,11 @@ function App() {
     }
   };
 
-  // Reload both campaigns and donations after actions
-  const reloadAll = async () => {
-    await loadCampaigns();
-    await loadDonations();
-  };
+  // reloadAll provided by blockchain context
 
-  const handleViewChange = (view) => {
-    setActiveView(view);
-  };
+  const handleViewChange = (view) => { setActiveView(view); };
 
-  const handleAuthSuccess = (userData) => {
-    setAuthenticatedUser(userData);
-  };
+  const handleAuthSuccess = (userData) => { setAuthenticatedUser(userData); };
 
   // Show auth page if not authenticated
   if (authLoading) {
@@ -250,4 +173,10 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <BlockchainProvider>
+      <AppInner />
+    </BlockchainProvider>
+  );
+}

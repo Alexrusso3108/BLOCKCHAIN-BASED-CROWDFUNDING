@@ -7,7 +7,6 @@ import {
   detectFace, 
   startVideo, 
   stopVideo, 
-  descriptorToArray,
   arrayToDescriptor,
   compareFaces
 } from '../utils/faceRecognition';

@@ -36,9 +36,30 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    // Listen for auth changes. Preserve locally persisted face-login user across refresh
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        // Supabase session exists (normal email/password or OAuth sign-in)
+        setUser(session.user);
+      } else {
+        // No supabase session. If this is an explicit sign-out event, clear local persisted user.
+        if (event === 'SIGNED_OUT') {
+          setUser(null);
+          try { localStorage.removeItem('wecare_user'); } catch (e) { /* ignore */ }
+        } else {
+          // Could be page reload or storage event; fall back to any locally persisted face-login user
+          try {
+            const saved = localStorage.getItem('wecare_user');
+            if (saved) {
+              setUser(JSON.parse(saved));
+            } else {
+              setUser(null);
+            }
+          } catch (e) {
+            setUser(null);
+          }
+        }
+      }
     });
 
     return () => subscription.unsubscribe();
