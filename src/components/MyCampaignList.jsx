@@ -11,7 +11,7 @@ const badgeColors = {
   Housing: "bg-green-100 text-green-700 border-green-200",
 };
 
-export default function MyCampaignList({ campaigns, reloadCampaigns, donations, currentAccount, onOptimisticDonate }) {
+export default function MyCampaignList({ campaigns, reloadCampaigns, donations, onOptimisticDonate }) {
   const [selectedCampaign, setSelectedCampaign] = useState(null);
 
   const handleCardClick = (campaign, index) => {
