@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import Web3 from 'web3';
 import { getContract } from '../web3';
 
 const BlockchainContext = createContext(null);
@@ -11,161 +12,199 @@ export const BlockchainProvider = ({ children }) => {
 
   const contractRef = useRef(null);
   const web3Ref = useRef(null);
-  const lastBlockRef = useRef(0);
-  const pollIntervalRef = useRef(null);
 
-  const loadCampaigns = async () => {
-    setLoading(true);
+  // --- LOAD CAMPAIGNS ---
+  const loadCampaigns = useCallback(async () => {
     try {
-      let contract, accounts;
-      if (contractRef.current && web3Ref.current) {
-        contract = contractRef.current;
-        accounts = await web3Ref.current.eth.getAccounts();
-      } else {
-        const res = await getContract();
-        contract = res.contract;
-        web3Ref.current = res.web3;
-        contractRef.current = res.contract;
-        accounts = res.accounts;
-      }
+      const contract = contractRef.current;
+      const web3 = web3Ref.current;
+      if (!contract || !web3) return [];
+
+      const accounts = await web3.eth.getAccounts();
+      if (accounts && accounts.length > 0) setCurrentAccount(accounts[0]);
+      else setCurrentAccount(null);
+
       const result = await contract.methods.getCampaigns().call();
-      const indexed = result.map((c, idx) => ({ ...c, _index: idx, contractId: (idx + 1).toString() }));
+      const indexed = result.map((c, idx) => ({
+        ...c,
+        _index: idx,
+        contractId: (idx + 1).toString(),
+      }));
       setCampaigns(indexed);
-      if (accounts && accounts.length > 0) setCurrentAccount(accounts[0]); else setCurrentAccount(null);
+      return indexed;
     } catch (err) {
       console.error('loadCampaigns error', err);
       setCampaigns([]);
-      setCurrentAccount(null);
-    } finally {
-      setLoading(false);
+      return [];
     }
-  };
+  }, []);
 
-  const loadDonations = async () => {
+  // --- LOAD DONATIONS ---
+  const loadDonations = useCallback(async () => {
     try {
-      const contract = contractRef.current || (await getContract()).contract;
-      const web3 = web3Ref.current || (await getContract()).web3;
+      const contract = contractRef.current;
+      const web3 = web3Ref.current;
+      if (!contract || !web3) return [];
+
       const events = await contract.getPastEvents('Donated', { fromBlock: 0, toBlock: 'latest' });
-      const donationsWithTime = await Promise.all(events.map(async (event) => {
-        const block = await web3.eth.getBlock(event.blockNumber);
-        const rawAmount = event.returnValues.amount;
-        const amountEthStr = web3.utils.fromWei(rawAmount.toString(), 'ether');
-        const amountEth = parseFloat(amountEthStr);
-        const campaignId = event.returnValues.campaignId !== undefined ? event.returnValues.campaignId.toString() : null;
-        return {
-          address: event.returnValues.donor,
-          amount: amountEth.toFixed(4),
-          campaignId,
-          time: new Date(Number(block.timestamp) * 1000).toLocaleString()
-        };
-      }));
-      setDonations(donationsWithTime.reverse());
-      try {
-        const latest = await web3.eth.getBlockNumber();
-        lastBlockRef.current = latest;
-      } catch (err) { /* ignore */ }
+      const donationsWithTime = await Promise.all(
+        events.map(async (event) => {
+          const block = await web3.eth.getBlock(event.blockNumber);
+          const rawAmount = event.returnValues.amount?.toString();
+          const amountEth = parseFloat(web3.utils.fromWei(rawAmount, 'ether'));
+          const campaignId = event.returnValues.campaignId?.toString() || null;
+          return {
+            address: event.returnValues.donor,
+            amount: amountEth.toFixed(4),
+            amountWei: rawAmount,
+            campaignId,
+            time: new Date(Number(block.timestamp) * 1000).toLocaleString(),
+          };
+        })
+      );
+
+      const ordered = donationsWithTime.reverse();
+      setDonations(ordered);
+      return ordered;
     } catch (err) {
       console.error('loadDonations error', err);
       setDonations([]);
+      return [];
     }
-  };
-
-  const reloadAll = async () => {
-    await loadCampaigns();
-    await loadDonations();
-  };
-
-  const handleOptimisticDonate = (donation) => {
-    setDonations(prev => [donation, ...prev]);
-  };
-
-  useEffect(() => {
-    let mounted = true;
-    const initialize = async () => {
-      try {
-        const { contract, web3, accounts } = await getContract();
-        contractRef.current = contract;
-        web3Ref.current = web3;
-        if (accounts && accounts.length > 0) setCurrentAccount(accounts[0]);
-        await loadCampaigns();
-        await loadDonations();
-
-        try {
-          const latest = await web3.eth.getBlockNumber();
-          lastBlockRef.current = latest;
-        } catch (err) {
-          lastBlockRef.current = 0;
-        }
-
-        pollIntervalRef.current = setInterval(async () => {
-          if (!mounted) return;
-          try {
-            const web3 = web3Ref.current;
-            const contract = contractRef.current;
-            if (!web3 || !contract) return;
-            const latest = await web3.eth.getBlockNumber();
-            if (latest > lastBlockRef.current) {
-              const fromBlock = lastBlockRef.current + 1 || 0;
-              const toBlock = latest;
-              lastBlockRef.current = latest;
-              const events = await contract.getPastEvents('allEvents', { fromBlock, toBlock });
-              if (events && events.length > 0) {
-                for (const ev of events) {
-                  if (ev.event === 'Donated') {
-                    try {
-                      const block = await web3.eth.getBlock(ev.blockNumber);
-                      const rawAmount = ev.returnValues.amount;
-                      const amountEthStr = web3.utils.fromWei(rawAmount.toString(), 'ether');
-                      const amountEth = parseFloat(amountEthStr);
-                      const campaignId = ev.returnValues.campaignId !== undefined ? ev.returnValues.campaignId.toString() : null;
-                      const donationObj = {
-                        address: ev.returnValues.donor,
-                        amount: amountEth.toFixed(4),
-                        campaignId,
-                        time: new Date(Number(block.timestamp) * 1000).toLocaleString()
-                      };
-                      setDonations(prev => [donationObj, ...prev]);
-                      setCampaigns(prev => {
-                        if (!campaignId) return prev;
-                        const idx = parseInt(campaignId, 10) - 1;
-                        if (isNaN(idx) || idx < 0 || idx >= prev.length) return prev;
-                        const updated = [...prev];
-                        const prevRaised = Number(web3.utils.fromWei(updated[idx].raised?.toString() || '0', 'ether')) || 0;
-                        updated[idx] = { ...updated[idx], raised: web3.utils.toWei((prevRaised + amountEth).toString(), 'ether') };
-                        return updated;
-                      });
-                    } catch (err) {
-                      console.error('Error processing Donated event', err);
-                    }
-                  } else if (ev.event === 'CampaignCreated' || ev.event === 'Withdrawn') {
-                    await loadCampaigns();
-                  }
-                }
-              }
-            }
-          } catch (err) {
-            console.error('Polling error:', err);
-          }
-        }, 4000);
-      } catch (err) {
-        console.error('Initialization error:', err);
-      }
-    };
-    initialize();
-
-    return () => {
-      mounted = false;
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    };
   }, []);
 
+  // --- RELOAD EVERYTHING ---
+  const reloadAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [loadedCampaigns, donationsList] = await Promise.all([loadCampaigns(), loadDonations()]);
+
+      // aggregate total raised per campaign
+      const donationMap = {};
+      for (const d of donationsList) {
+        if (!d.campaignId || !d.amountWei) continue;
+        const id = d.campaignId;
+        donationMap[id] = (donationMap[id] || 0n) + BigInt(d.amountWei);
+      }
+
+      const updatedCampaigns = loadedCampaigns.map((c) => {
+        const id = c.contractId.toString();
+        const raised = donationMap[id] || 0n;
+        return { ...c, raised: raised.toString() };
+      });
+
+      setCampaigns(updatedCampaigns);
+    } catch (err) {
+      console.error('reloadAll error', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [loadCampaigns, loadDonations]);
+
+  // --- INITIAL SETUP & REAL-TIME SUBSCRIPTIONS ---
+  useEffect(() => {
+    let mounted = true;
+    let donateSub = null;
+    let campaignCreatedSub = null;
+    let withdrawnSub = null;
+
+    const init = async () => {
+      try {
+        // 👇 Connect via WebSocket provider for live updates
+        const { contract, web3, accounts } = await getContract(true);
+        if (!mounted) return;
+
+        contractRef.current = contract;
+        web3Ref.current = web3;
+        if (accounts?.length) setCurrentAccount(accounts[0]);
+
+        await reloadAll(); // Load data once initially
+
+        // --- 📡 SUBSCRIBE TO LIVE EVENTS ---
+        if (contract.events) {
+          // 🔴 When someone donates
+          donateSub = contract.events
+            .Donated({ fromBlock: 'latest' })
+            .on('data', async (event) => {
+              console.log('💰 New donation detected:', event.returnValues);
+
+              const { donor, amount, campaignId } = event.returnValues;
+              const block = await web3.eth.getBlock(event.blockNumber);
+              const amountEth = parseFloat(web3.utils.fromWei(amount, 'ether')).toFixed(4);
+
+              // Add new donation immediately
+              const donation = {
+                address: donor,
+                amount: amountEth,
+                amountWei: amount.toString(),
+                campaignId: campaignId.toString(),
+                time: new Date(Number(block.timestamp) * 1000).toLocaleString(),
+              };
+              setDonations((prev) => [donation, ...prev]);
+
+              // Update corresponding campaign raised amount
+              setCampaigns((prev) => {
+                const updated = [...prev];
+                const idx = parseInt(campaignId, 10) - 1;
+                if (idx >= 0 && idx < updated.length) {
+                  const prevRaised = BigInt(updated[idx].raised || '0');
+                  const newRaised = prevRaised + BigInt(amount);
+                  updated[idx] = { ...updated[idx], raised: newRaised.toString() };
+                }
+                return updated;
+              });
+            })
+            .on('error', (err) => console.error('Donation event error:', err));
+
+          // 🟢 New campaign created
+          campaignCreatedSub = contract.events
+            .CampaignCreated({ fromBlock: 'latest' })
+            .on('data', async () => {
+              console.log('📢 New campaign detected!');
+              await reloadAll();
+            })
+            .on('error', (err) => console.error('CampaignCreated error:', err));
+
+          // 💸 Campaign withdrawal
+          withdrawnSub = contract.events
+            .Withdrawn({ fromBlock: 'latest' })
+            .on('data', async () => {
+              console.log('💸 Funds withdrawn detected!');
+              await reloadAll();
+            })
+            .on('error', (err) => console.error('Withdrawn error:', err));
+        }
+      } catch (err) {
+        console.error('Initialization error:', err);
+        setLoading(false);
+      }
+    };
+
+    init();
+
+    // Cleanup
+    return () => {
+      mounted = false;
+      if (donateSub?.unsubscribe) donateSub.unsubscribe();
+      if (campaignCreatedSub?.unsubscribe) campaignCreatedSub.unsubscribe();
+      if (withdrawnSub?.unsubscribe) withdrawnSub.unsubscribe();
+    };
+  }, [reloadAll]);
+
   return (
-    <BlockchainContext.Provider value={{ campaigns, donations, loading, currentAccount, reloadAll, handleOptimisticDonate }}>
+    <BlockchainContext.Provider
+      value={{
+        campaigns,
+        donations,
+        loading,
+        currentAccount,
+        reloadAll,
+      }}
+    >
       {children}
     </BlockchainContext.Provider>
   );
 };
 
 export const useBlockchain = () => useContext(BlockchainContext);
-
 export default BlockchainContext;
