@@ -24,14 +24,61 @@ export const BlockchainProvider = ({ children }) => {
       if (accounts && accounts.length > 0) setCurrentAccount(accounts[0]);
       else setCurrentAccount(null);
 
-      const result = await contract.methods.getCampaigns().call();
-      const indexed = result.map((c, idx) => ({
-        ...c,
-        _index: idx,
-        contractId: (idx + 1).toString(),
-      }));
-      setCampaigns(indexed);
-      return indexed;
+      // Support two possible contract APIs:
+      // 1) getCampaigns() returns Campaign[]
+      // 2) getCampaignCount() + getCampaign(i) (returns tuple per campaign)
+      if (contract.methods.getCampaigns) {
+        const result = await contract.methods.getCampaigns().call();
+        const indexed = result.map((c, idx) => ({
+          // ABI shape when getCampaigns returns struct array
+          title: c.title || c[0] || '',
+          description: c.description || c[1] || '',
+          category: c.category || c[2] || '',
+          image: c.image || c[3] || '',
+          goal: (c.goal || c[4] || '0').toString(),
+          raised: (c.raised || c[5] || '0').toString(),
+          owner: c.owner || c[6] || '',
+          withdrawn: Boolean(c.withdrawn || c[7] || false),
+          _index: idx,
+          contractId: String(idx),
+        }));
+        setCampaigns(indexed);
+        return indexed;
+      }
+
+      if (contract.methods.getCampaignCount && contract.methods.getCampaign) {
+        const countStr = await contract.methods.getCampaignCount().call();
+        const count = Number(countStr || 0);
+        const results = [];
+        for (let idx = 0; idx < count; idx += 1) {
+          try {
+            const c = await contract.methods.getCampaign(idx).call();
+            // getCampaign returns a tuple matching the struct order
+            const campaign = {
+              title: c.title || c[0] || '',
+              description: c.description || c[1] || '',
+              category: c.category || c[2] || '',
+              image: c.image || c[3] || '',
+              goal: (c.goal || c[4] || '0').toString(),
+              raised: (c.raised || c[5] || '0').toString(),
+              owner: c.owner || c[6] || '',
+              withdrawn: Boolean(c.withdrawn || c[7] || false),
+              _index: idx,
+              contractId: String(idx),
+            };
+            results.push(campaign);
+          } catch (e) {
+            console.error('Error reading campaign index', idx, e);
+          }
+        }
+        setCampaigns(results);
+        return results;
+      }
+
+      // If neither accessor exists, return empty list
+      console.warn('Contract does not expose getCampaigns or getCampaignCount/getCampaign');
+      setCampaigns([]);
+      return [];
     } catch (err) {
       console.error('loadCampaigns error', err);
       setCampaigns([]);
@@ -145,7 +192,7 @@ export const BlockchainProvider = ({ children }) => {
               // Update corresponding campaign raised amount
               setCampaigns((prev) => {
                 const updated = [...prev];
-                const idx = parseInt(campaignId, 10) - 1;
+                const idx = parseInt(campaignId, 10);
                 if (idx >= 0 && idx < updated.length) {
                   const prevRaised = BigInt(updated[idx].raised || '0');
                   const newRaised = prevRaised + BigInt(amount);
