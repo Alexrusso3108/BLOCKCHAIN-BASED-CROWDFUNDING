@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import ProgressBar from "./ProgressBar";
 import DonateForm from "./DonateForm";
 import WithdrawButton from "./WithdrawButton";
-import CampaignDetailsModal from "./CampaignDetailsModal";
+import MyCampaignDetailsModal from "./MyCampaignDetailsModal";
 
 const badgeColors = {
   Health: "bg-pink-100 text-pink-700 border-pink-200",
@@ -19,7 +19,7 @@ export default function MyCampaignList({ campaigns, reloadCampaigns, donations, 
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
       {campaigns.map((c, i) => (
         <div
           key={i}
@@ -54,14 +54,12 @@ export default function MyCampaignList({ campaigns, reloadCampaigns, donations, 
             </div>
           </div>
           {/* Actions */}
-          <div className="bg-indigo-50/40 px-6 py-4 flex flex-col md:flex-row gap-2 border-t border-indigo-100">
-            <WithdrawButton campaignId={c.contractId ?? (c._index ?? i)} reloadCampaigns={reloadCampaigns} />
-          </div>
+          
         </div>
       ))}
 
       {selectedCampaign && (
-        <CampaignDetailsModal
+        <MyCampaignDetailsModal
           isOpen={!!selectedCampaign}
           onClose={() => setSelectedCampaign(null)}
           campaign={selectedCampaign.campaign}

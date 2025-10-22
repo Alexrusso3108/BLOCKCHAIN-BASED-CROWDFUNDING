@@ -52,7 +52,6 @@ export default function ProgressBar({ campaign, donations = [], campaignIndex = 
     <div className="w-full mb-2">
       <div className="flex justify-between items-center mb-2">
         <span className="font-semibold text-gray-700">Progress</span>
-        <span className="text-xs text-gray-400 mr-2">#{campaign._index ?? campaignIndex}</span>
         <span className="font-semibold text-gray-700">{percent.toFixed(1)}%</span>
       </div>
       <div className="w-full bg-gray-200 rounded-full h-4 mb-4 overflow-hidden">

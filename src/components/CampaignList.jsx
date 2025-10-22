@@ -5,6 +5,11 @@ import CampaignDetailsModal from "./CampaignDetailsModal";
 
 const badgeColors = {
   Health: "bg-pink-100 text-pink-700 border-pink-200",
+  Personal_Cause: "bg-purple-100 text-purple-700 border-purple-200",
+  NGO: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  Creative_Project: "bg-green-100 text-green-700 border-green-200",
+  Business: "bg-red-100 text-red-700 border-red-200",
+  Research: "bg-teal-100 text-teal-700 border-teal-200",
   Education: "bg-blue-100 text-blue-700 border-blue-200",
   Humanitarian: "bg-yellow-100 text-yellow-700 border-yellow-200",
   Housing: "bg-green-100 text-green-700 border-green-200",
@@ -18,7 +23,7 @@ export default function CampaignList({ campaigns, reloadCampaigns, donations, cu
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
   {campaigns.map((c, i) => (
         <div
           key={i}
@@ -51,10 +56,7 @@ export default function CampaignList({ campaigns, reloadCampaigns, donations, cu
               <ProgressBar campaign={c} donations={donations} campaignIndex={c._index ?? i} />
             </div>
           </div>
-          {/* Actions */}
-          <div className="bg-indigo-50/40 px-6 py-4 flex flex-col md:flex-row gap-2 border-t border-indigo-100">
-            <DonateForm campaignId={c.contractId ?? (c._index ?? i)} reloadCampaigns={reloadCampaigns} onOptimisticDonate={onOptimisticDonate} />
-          </div>
+          
         </div>
       ))}
 
