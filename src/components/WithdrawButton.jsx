@@ -8,7 +8,7 @@ export default function WithdrawButton({ campaignId, reloadCampaigns }) {
     try {
       const { contract, web3 } = await getContract();
       const accounts = await web3.eth.getAccounts();
-  const contractCampaignId = Number(campaignId) + 1;
+  const contractCampaignId = Number(campaignId);
   await contract.methods.withdraw(contractCampaignId).send({ from: accounts[0] });
       alert("Funds withdrawn!");
       if (reloadCampaigns) await reloadCampaigns();

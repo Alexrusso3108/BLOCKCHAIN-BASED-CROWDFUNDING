@@ -53,10 +53,7 @@ export default function Header({ onCreateCampaign, onViewChange, authenticatedUs
     <header className="flex items-center justify-between px-8 py-5 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 shadow-lg">
       <div className="flex items-center space-x-3">
         <span className="text-3xl font-extrabold text-white drop-shadow-sm">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="16" cy="16" r="16" fill="#fff" fillOpacity="0.15" />
-            <path d="M10 22V10h12v12H10zm2-2h8V12h-8v8z" fill="#fff" />
-          </svg>
+          <img src="/public/weCareLogo.png" alt="WeCare Logo" className="inline h-10 w-10 mr-2 -mt-1" />
         </span>
         <span className="text-2xl font-extrabold text-white tracking-tight drop-shadow-sm">WeCare</span>
       </div>

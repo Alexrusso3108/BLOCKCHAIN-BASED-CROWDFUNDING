@@ -65,8 +65,10 @@ function AppInner() {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
   }
 
-  const activeCampaigns = campaigns.filter(c => !c.withdrawn);
-  const myActiveCampaigns = campaigns.filter(c => !c.withdrawn && c.owner === currentAccount);
+  // Exclude the 0th campaign from UI as requested
+  const visibleCampaigns = campaigns.filter(c => (c._index ?? Number(c.contractId)) !== 0);
+  const activeCampaigns = visibleCampaigns.filter(c => !c.withdrawn);
+  const myActiveCampaigns = visibleCampaigns.filter(c => !c.withdrawn && c.owner === currentAccount);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-indigo-50 to-purple-100">
