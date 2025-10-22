@@ -1,6 +1,6 @@
 import React from "react";
 import ProgressBar from "./ProgressBar";
-import DonateForm from "./DonateForm";
+import WithdrawButton from "./WithdrawButton";
 
 const badgeColors = {
   Health: "bg-pink-100 text-pink-700 border-pink-200",
@@ -9,7 +9,7 @@ const badgeColors = {
   Housing: "bg-green-100 text-green-700 border-green-200",
 };
 
-export default function CampaignDetailsModal({ isOpen, onClose, campaign, donations, campaignId, reloadCampaigns, onOptimisticDonate }) {
+export default function CampaignDetailsModal({ isOpen, onClose, campaign, donations, campaignId, reloadCampaigns }) {
   if (!isOpen) return null;
 
   // Prefer explicit contractId from campaign when available
@@ -64,9 +64,9 @@ export default function CampaignDetailsModal({ isOpen, onClose, campaign, donati
               <ProgressBar campaign={campaign} donations={donations} campaignIndex={campaign._index ?? campaignId} />
             </div>
 
-            {/* Donation Form */}
-              <div className="bg-indigo-50/40 rounded-lg p-2 border border-indigo-100">
-              <DonateForm campaignId={campaign.contractId ?? (campaign._index ?? campaignId)} reloadCampaigns={reloadCampaigns} onOptimisticDonate={onOptimisticDonate} />
+            {/* Withdraw */}
+            <div className="bg-indigo-50/40 px-6 py-4 flex flex-col md:flex-row gap-2 border-t border-indigo-100">
+              <WithdrawButton campaignId={campaign.contractId ?? (campaign._index ?? campaignId)} reloadCampaigns={reloadCampaigns} />
             </div>
 
             {/* Donation History */}
