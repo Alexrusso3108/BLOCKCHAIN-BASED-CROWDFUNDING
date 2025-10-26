@@ -63,11 +63,11 @@ export default function ProgressBar({ campaign, donations = [], campaignIndex = 
       <div className="flex flex-wrap justify-between text-base font-bold mb-2">
         <div>
           <div className="text-xs font-normal text-gray-500">Total Raised</div>
-          <div>{raised} ETH</div>
+          <div>{raised.toFixed(4)} ETH</div>
         </div>
         <div>
           <div className="text-xs font-normal text-gray-500">Goal</div>
-          <div>{goal} ETH</div>
+          <div>{goal.toFixed(4)} ETH</div>
         </div>
       </div>
     </div>
