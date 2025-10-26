@@ -22,10 +22,10 @@ export default function ProgressBar({ campaign, donations = [], campaignIndex = 
 
   // Compute raised amount: prefer aggregating recent donation events for this campaign
   let raised = 0;
-  if (Array.isArray(donations) && campaignIndex !== null) {
+  if (Array.isArray(donations) && campaign.contractId) {
     try {
-      // donations contain the contract campaignId (1-based) as string. Our UI uses 0-based index.
-      const expectedId = (Number(campaignIndex) + 1).toString();
+      // donations contain the contract campaignId (1-based) as string, matching campaign.contractId
+      const expectedId = campaign.contractId.toString();
       const matching = donations.filter(d => d.campaignId?.toString() === expectedId);
       if (matching.length > 0) {
         // donations amounts are already in ETH strings in App.jsx mapping (toFixed)

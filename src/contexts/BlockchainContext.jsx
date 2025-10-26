@@ -40,7 +40,7 @@ export const BlockchainProvider = ({ children }) => {
           owner: c.owner || c[6] || '',
           withdrawn: Boolean(c.withdrawn || c[7] || false),
           _index: idx,
-          contractId: String(idx),
+          contractId: String(idx + 1),
         }));
         setCampaigns(indexed);
         return indexed;
@@ -64,7 +64,7 @@ export const BlockchainProvider = ({ children }) => {
               owner: c.owner || c[6] || '',
               withdrawn: Boolean(c.withdrawn || c[7] || false),
               _index: idx,
-              contractId: String(idx),
+              contractId: String(idx + 1),
             };
             results.push(campaign);
           } catch (e) {
@@ -192,8 +192,9 @@ export const BlockchainProvider = ({ children }) => {
               // Update corresponding campaign raised amount
               setCampaigns((prev) => {
                 const updated = [...prev];
-                const idx = parseInt(campaignId, 10);
-                if (idx >= 0 && idx < updated.length) {
+                const campaignIdStr = campaignId.toString();
+                const idx = updated.findIndex(c => c.contractId === campaignIdStr);
+                if (idx >= 0) {
                   const prevRaised = BigInt(updated[idx].raised || '0');
                   const newRaised = prevRaised + BigInt(amount);
                   updated[idx] = { ...updated[idx], raised: newRaised.toString() };

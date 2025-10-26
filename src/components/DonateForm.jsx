@@ -11,9 +11,8 @@ export default function DonateForm({ campaignId, reloadCampaigns, onOptimisticDo
     try {
       const { web3, contract } = await getContract();
       const accounts = await web3.eth.getAccounts();
-      // contract campaign IDs are 1-based, UI uses 0-based index
-      // If campaignId is already the contract id string/number, use it; otherwise assume 0-based index and +1.
-      const contractCampaignId = Number(campaignId) > 0 ? Number(campaignId) : (Number(campaignId) + 1);
+      // campaignId is already the 1-based contract campaign ID
+      const contractCampaignId = Number(campaignId);
       // Optimistic donation entry (displayed immediately)
       if (onOptimisticDonate) {
         onOptimisticDonate({

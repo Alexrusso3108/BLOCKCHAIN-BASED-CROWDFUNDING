@@ -13,7 +13,7 @@ export default function CampaignDetailsModal({ isOpen, onClose, campaign, donati
   if (!isOpen) return null;
 
   // Prefer explicit contractId from campaign when available
-  const contractIdStr = campaign?.contractId ?? ((Number(campaignId) + 1).toString());
+  const contractIdStr = campaign?.contractId ?? campaignId.toString();
   const campaignDonations = donations.filter(d => d.campaignId === contractIdStr);
 
   return (

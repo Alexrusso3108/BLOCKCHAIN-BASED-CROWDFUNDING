@@ -66,7 +66,7 @@ function AppInner() {
   }
 
   // Exclude the 0th campaign from UI as requested
-  const visibleCampaigns = campaigns.filter(c => (c._index ?? Number(c.contractId)) !== 0);
+  const visibleCampaigns = campaigns.filter(c => c._index !== 0);
   const activeCampaigns = visibleCampaigns.filter(c => !c.withdrawn);
   const myActiveCampaigns = visibleCampaigns.filter(c => !c.withdrawn && c.owner === currentAccount);
 
