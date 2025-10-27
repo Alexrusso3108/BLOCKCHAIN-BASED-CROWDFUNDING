@@ -12,9 +12,14 @@ const badgeColors = {
 export default function CampaignDetailsModal({ isOpen, onClose, campaign, donations, campaignId, reloadCampaigns, onOptimisticDonate }) {
   if (!isOpen) return null;
 
-  // Prefer explicit contractId from campaign when available
-  const contractIdStr = campaign?.contractId ?? campaignId.toString();
-  const campaignDonations = donations.filter(d => d.campaignId === contractIdStr);
+  // Use the 0-based index for donation filtering since that's what the contract uses
+  const contractIndex = campaign?._index?.toString() ?? (campaignId - 1).toString();
+  const campaignDonations = donations.filter(d => d.campaignId === contractIndex);
+  
+  console.log('Filtering donations for campaign:', campaign?.title);
+  console.log('Using contract index:', contractIndex);
+  console.log('Available donations:', donations.map(d => ({ campaignId: d.campaignId, amount: d.amount })));
+  console.log('Filtered donations:', campaignDonations);
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center  justify-center p-4">

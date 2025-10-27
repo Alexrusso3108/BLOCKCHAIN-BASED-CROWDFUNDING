@@ -94,6 +94,7 @@ export const BlockchainProvider = ({ children }) => {
       if (!contract || !web3) return [];
 
       const events = await contract.getPastEvents('Donated', { fromBlock: 0, toBlock: 'latest' });
+      console.log('Found donation events:', events.length, events);
       const donationsWithTime = await Promise.all(
         events.map(async (event) => {
           const block = await web3.eth.getBlock(event.blockNumber);
@@ -122,9 +123,12 @@ export const BlockchainProvider = ({ children }) => {
 
   // --- RELOAD EVERYTHING ---
   const reloadAll = useCallback(async () => {
+    console.log('🔄 Starting reloadAll...');
     setLoading(true);
     try {
       const [loadedCampaigns, donationsList] = await Promise.all([loadCampaigns(), loadDonations()]);
+      console.log('📊 Loaded campaigns:', loadedCampaigns.length);
+      console.log('💰 Loaded donations:', donationsList.length, donationsList);
 
       // aggregate total raised per campaign
       const donationMap = {};
@@ -133,14 +137,19 @@ export const BlockchainProvider = ({ children }) => {
         const id = d.campaignId;
         donationMap[id] = (donationMap[id] || 0n) + BigInt(d.amountWei);
       }
+      console.log('💵 Donation map:', donationMap);
 
       const updatedCampaigns = loadedCampaigns.map((c) => {
-        const id = c.contractId.toString();
-        const raised = donationMap[id] || 0n;
+        // Use the 0-based index for donation mapping since that's what the contract uses
+        const contractIndex = c._index.toString(); // This is 0-based
+        const frontendId = c.contractId.toString(); // This is 1-based
+        const raised = donationMap[contractIndex] || 0n;
+        console.log(`Campaign ${c.title} (Frontend ID: ${frontendId}, Contract Index: ${contractIndex}): raised ${raised.toString()} wei`);
         return { ...c, raised: raised.toString() };
       });
 
       setCampaigns(updatedCampaigns);
+      console.log('✅ reloadAll completed!');
     } catch (err) {
       console.error('reloadAll error', err);
     } finally {
@@ -167,12 +176,19 @@ export const BlockchainProvider = ({ children }) => {
 
         await reloadAll(); // Load data once initially
 
-        // --- 📡 SUBSCRIBE TO LIVE EVENTS ---
-        if (contract.events) {
-          // 🔴 When someone donates
-          donateSub = contract.events
-            .Donated({ fromBlock: 'latest' })
-            .on('data', async (event) => {
+        // --- 📡 SKIP EVENT SUBSCRIPTIONS FOR NOW ---
+        // MetaMask doesn't support reliable event subscriptions
+        // We'll rely on manual reloads after transactions
+        console.log('Event subscriptions disabled - using manual reload strategy');
+        
+        // Commented out event subscriptions to prevent infinite reloading
+        /*
+        try {
+          if (contract.events && contract.events.Donated) {
+            // 🔴 When someone donates
+            donateSub = contract.events
+              .Donated({ fromBlock: 'latest' })
+              .on('data', async (event) => {
               console.log('💰 New donation detected:', event.returnValues);
 
               const { donor, amount, campaignId } = event.returnValues;
@@ -221,7 +237,12 @@ export const BlockchainProvider = ({ children }) => {
               await reloadAll();
             })
             .on('error', (err) => console.error('Withdrawn error:', err));
+          }
+        } catch (eventError) {
+          console.warn('Event subscription failed:', eventError);
+          // Events not available - rely on manual reloads only
         }
+        */
       } catch (err) {
         console.error('Initialization error:', err);
         setLoading(false);

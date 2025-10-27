@@ -8,8 +8,18 @@ export default function WithdrawButton({ campaignId, reloadCampaigns }) {
     try {
       const { contract, web3 } = await getContract();
       const accounts = await web3.eth.getAccounts();
-  const contractCampaignId = Number(campaignId);
-  await contract.methods.withdraw(contractCampaignId).send({ from: accounts[0] });
+      const contractCampaignId = Number(campaignId) - 1; // Convert to 0-based indexing
+      
+      // Estimate gas and add 20% buffer
+      const gasEstimate = await contract.methods.withdraw(contractCampaignId).estimateGas({
+        from: accounts[0],
+      });
+      const gasLimit = Math.floor(Number(gasEstimate) * 1.2);
+      
+      await contract.methods.withdraw(contractCampaignId).send({ 
+        from: accounts[0],
+        gas: gasLimit,
+      });
       alert("Funds withdrawn!");
       if (reloadCampaigns) await reloadCampaigns();
     } catch (err) {

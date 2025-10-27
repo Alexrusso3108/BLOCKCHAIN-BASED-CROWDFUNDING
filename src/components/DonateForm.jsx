@@ -11,25 +11,49 @@ export default function DonateForm({ campaignId, reloadCampaigns, onOptimisticDo
     try {
       const { web3, contract } = await getContract();
       const accounts = await web3.eth.getAccounts();
-      // campaignId is already the 1-based contract campaign ID
-      const contractCampaignId = Number(campaignId);
+      // Convert to 0-based indexing for the smart contract
+      const contractCampaignId = Number(campaignId) - 1;
+      
+      console.log("Frontend campaign ID:", campaignId, "-> Contract campaign ID:", contractCampaignId);
+      console.log("Donation amount:", amount, "Wei value:", web3.utils.toWei(amount, "ether"));
+      
+      // Validate amount
+      if (!amount || parseFloat(amount) <= 0) {
+        alert("Please enter a valid donation amount greater than 0");
+        return;
+      }
       // Optimistic donation entry (displayed immediately)
       if (onOptimisticDonate) {
         onOptimisticDonate({
           address: accounts[0],
           amount: parseFloat(amount).toFixed(4),
-          campaignId: contractCampaignId.toString(),
+          campaignId: campaignId.toString(), // Use original frontend ID for display
           time: new Date().toLocaleString(),
         });
       }
 
-      await contract.methods.donate(contractCampaignId).send({
+      // Estimate gas and add 20% buffer
+      const gasEstimate = await contract.methods.donate(contractCampaignId).estimateGas({
         from: accounts[0],
         value: web3.utils.toWei(amount, "ether"),
       });
+      const gasLimit = Math.floor(Number(gasEstimate) * 1.2);
+
+      await contract.methods.donate(contractCampaignId).send({
+        from: accounts[0],
+        value: web3.utils.toWei(amount, "ether"),
+        gas: gasLimit,
+      });
       alert("Donation successful!");
       setAmount("");
-      if (reloadCampaigns) await reloadCampaigns();
+      // Force reload after successful donation
+      if (reloadCampaigns) {
+        console.log("Reloading campaigns after donation...");
+        await reloadCampaigns();
+        console.log("Reload completed!");
+      } else {
+        console.warn("No reloadCampaigns function provided!");
+      }
     } catch (err) {
       console.error("Donation failed:", err);
       alert("Donation failed. See console for details.");
